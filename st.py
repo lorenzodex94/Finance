@@ -36,7 +36,6 @@ mu = returns.mean() * 252  # Annualize the mean
 sigma = returns.std() * (252 ** 0.5)  # Annualize the standard deviation
 
 #################################################################################################################################################
-ticker = stock_symbol
 
 # Function for fetching and cleaning stock data
 def get_clean_financial_data(stock_symbol, start_date, end_date):
