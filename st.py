@@ -179,7 +179,7 @@ def get_natural_language_insights(
     print("Natural Language Insight:", response_text)
 
 # Schedule job to simulate receiving updates every minute
-schedule.every(10).seconds.do(process_stock_update)  
+schedule.every(1).minute.do(process_stock_update)  
 
 
 message = st.chat_message("assistant")
