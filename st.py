@@ -262,9 +262,9 @@ print(f"Mean Absolute Percentage Error (MAPE): {mape:.2f}%")
 
 # Plot the results
 plt.figure(figsize=(10, 6))
-plt.plot(test_dates, y_test_scaled, label="Actual Tesla Stock Price", color='blue')
-plt.plot(test_dates, predicted_stock_price, label="Predicted Tesla Stock Price", color='red')
-plt.title('Tesla Stock Price Prediction with LSTM', fontsize=14)
+plt.plot(test_dates, y_test_scaled, label=f"Actual {stock_symbol} Stock Price", color='blue')
+plt.plot(test_dates, predicted_stock_price, label=f"Predicted {stock_symbol} Stock Price", color='red')
+plt.title(f'{stock_symbol} Stock Price Prediction with LSTM', fontsize=14)
 plt.xlabel('Time', fontsize=12)
 plt.ylabel('Scaled Stock Price (USD)', fontsize=12)
 plt.legend()
