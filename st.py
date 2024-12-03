@@ -361,3 +361,77 @@ plt.grid(True)
 st.pyplot(plt)  # Display the  plot in Streamlit
 
 
+
+############################# RNN
+
+
+from keras.models import Sequential
+from keras.layers import SimpleRNN, Dense, Dropout
+
+# Define the RNN model
+def build_rnn_model(input_shape):
+    model = Sequential()
+    model.add(SimpleRNN(units=50, return_sequences=True, input_shape=input_shape))
+    model.add(Dropout(0.2))
+    model.add(SimpleRNN(units=50, return_sequences=False))
+    model.add(Dropout(0.2))
+    model.add(Dense(units=1))  # Output layer for prediction
+
+    model.compile(optimizer='adam', loss='mean_squared_error')
+    return model
+
+# Build the RNN model
+rnn_model = build_rnn_model(X_train.shape[1:])
+
+# Train the model
+rnn_history = rnn_model.fit(X_train, y_train, epochs=70, batch_size=32, validation_data=(X_test, y_test))
+
+# Evaluate the model
+predicted_stock_price_rnn = rnn_model.predict(X_test)
+predicted_stock_price_rnn = scaler.inverse_transform(predicted_stock_price_rnn)
+
+# Inverse scale the actual stock prices
+y_test_scaled = scaler.inverse_transform(y_test.reshape(-1, 1))
+
+# Calculate MAPE for RNN
+mape_rnn = mean_absolute_percentage_error(y_test_scaled, predicted_stock_price_rnn)
+print(f"Mean Absolute Percentage Error (MAPE) for RNN: {mape_rnn:.2f}%")
+# Plot the results for RNN model
+plt.figure(figsize=(12, 6))
+plt.plot(test_dates, y_test_scaled, label="Actual Tesla Stock Price", color='blue')
+plt.plot(test_dates, predicted_stock_price_rnn, label="Predicted Tesla Stock Price", color='red')
+plt.title('Tesla Stock Price Prediction with RNN', fontsize=14)
+plt.xlabel('Time', fontsize=12)
+plt.ylabel(' Scaled Stock Price (USD)', fontsize=12)
+plt.legend()
+plt.grid(True)
+st.pyplot(plt) 
+
+
+last_window_data = scaled_data[-window_size:]  # Get the last window_size values
+last_window_data = last_window_data.reshape(1, window_size, 1)  # Reshape
+
+future_predictions = []
+for i in range(30):  
+    prediction = rnn_model.predict(last_window_data) # Make prediction
+    future_predictions.append(prediction[0, 0]) # Store prediction
+    
+    # Update the input sequence for the next prediction
+    last_window_data = np.append(last_window_data[:, 1:, :], prediction.reshape(1, 1, 1), axis=1)
+
+future_predictions = scaler.inverse_transform(np.array(future_predictions).reshape(-1, 1))
+import datetime
+
+today = datetime.date.today()
+future_dates = [today + datetime.timedelta(days=i) for i in range(1, 31)]  # 30 days
+
+plt.plot(tesla_data.index, tesla_data['adjClose'], label="Actual Tesla Stock Price")
+plt.plot(future_dates, future_predictions, label="Predicted Tesla Stock Price (RNN)") 
+plt.title('Tesla Stock Price Prediction with RNN (Next 30 Days)')
+plt.xlabel('Date')
+plt.ylabel('Stock Price')
+plt.legend()
+st.pyplot(plt) 
+
+
+
