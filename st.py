@@ -149,7 +149,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device}")
 
 # Fetching Reliance stock data from yfinance
-ticker = "TSLA"
+ticker = stock_symbol
 data = yf.download(ticker, start="2020-01-01", end=yesterday, interval="1d")
 close_prices = data['Close'].values
 
