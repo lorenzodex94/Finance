@@ -131,3 +131,143 @@ plt.xlabel("Daily Returns")
 plt.ylabel("Frequency")
 plt.grid()
 st.pyplot(plt)  # Display the second plot in Streamlit
+
+
+#############################################################################################################################
+
+def fetch_tesla_stock_data():
+    """
+    Fetch Tesla's historical stock data from Yahoo Finance.
+
+    Returns:
+        pd.DataFrame: DataFrame containing adjusted close prices indexed by date.
+    """
+    # Fetch data for Tesla (TSLA) from Yahoo Finance
+    ticker = stock_symbol
+    start_date = "2020-01-01"
+    end_date = yesterday
+    tesla = yf.download(ticker, start=start_date, end=end_date)
+
+    # Return a DataFrame with the adjusted close prices
+    tesla_data = tesla[['Adj Close']].rename(columns={"Adj Close": "adjClose"})
+    tesla_data.index.name = "date"
+    return tesla_data
+
+# Fetch Tesla stock data
+tesla_data = fetch_tesla_stock_data()
+
+# Display the first few rows of data
+print(tesla_data.head(10))
+
+
+import numpy as np
+import pandas as pd
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.metrics import mean_absolute_percentage_error
+from sklearn.model_selection import train_test_split
+# Define the window size and prediction time
+window_size = 20
+prediction_steps = 10
+# Function to create sequences
+def create_sequences(data, window_size, prediction_steps):
+    # Indented block within the function
+    X = []
+    y = []
+    for i in range(window_size, len(data) - prediction_steps):
+        X.append(data[i-window_size:i, 0]) # input sequence
+        y.append(data[i+prediction_steps-1, 0]) # target value (price at the next timestep)
+    return np.array(X), np.array(y)
+# Fetch Tesla stock data
+data = tesla_data[['adjClose']].values
+# Normalize the data using MinMaxScaler
+scaler = MinMaxScaler(feature_range=(0, 1))
+scaled_data = scaler.fit_transform(data)
+# Create sequences for the model
+X, y = create_sequences(scaled_data, window_size, prediction_steps)
+# Reshape input data to be in the shape [samples, time steps, features]
+X = X.reshape(X.shape[0], X.shape[1], 1)
+# Split the data into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, shuffle=False)
+print(f"Training data shape: {X_train.shape}")
+print(f"Testing data shape: {X_test.shape}")
+
+# Assuming tesla_data contains your original DataFrame with a 'date' index
+test_dates = tesla_data.index[len(tesla_data) - len(y_test):]
+
+
+################################################################################ LSTM Model
+
+import matplotlib.pyplot as plt
+import numpy as np
+import tensorflow as tf
+from keras.models import Sequential
+from keras.layers import LSTM, Dense, Dropout, Attention, Add, LayerNormalization, Layer
+from keras.callbacks import EarlyStopping
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.metrics import mean_absolute_percentage_error
+
+# Define a custom attention layer
+class AttentionLayer(Layer):
+    def __init__(self, **kwargs):
+        super(AttentionLayer, self).__init__(**kwargs)
+
+    def build(self, input_shape):
+        self.W = self.add_weight(shape=(input_shape[2], input_shape[2]), initializer='random_normal', trainable=True)
+        self.b = self.add_weight(shape=(input_shape[1],), initializer='zeros', trainable=True)
+        super(AttentionLayer, self).build(input_shape)
+
+    def call(self, inputs):
+        q = tf.matmul(inputs, self.W)
+        a = tf.matmul(q, inputs, transpose_b=True)
+        attention_weights = tf.nn.softmax(a, axis=-1)
+        return tf.matmul(attention_weights, inputs)
+
+# LSTM model with attention and early stopping
+def build_lstm_model_with_attention(input_shape):
+    model = Sequential()
+    model.add(LSTM(units=50, return_sequences=True, input_shape=input_shape))
+    model.add(Dropout(0.2))
+
+    # Attention layer
+    model.add(AttentionLayer())
+    model.add(LayerNormalization())
+
+    model.add(LSTM(units=50, return_sequences=False))
+    model.add(Dropout(0.2))
+    model.add(Dense(units=1))  # Output layer for prediction
+
+    model.compile(optimizer='adam', loss='mean_squared_error')
+    return model
+
+
+# Build the LSTM model with attention
+model = build_lstm_model_with_attention(X_train.shape[1:])
+
+# Implement EarlyStopping to prevent overfitting
+early_stopping = EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)
+
+# Train the model with EarlyStopping and 50 epochs
+history = model.fit(X_train, y_train, epochs=50, batch_size=32, validation_data=(X_test, y_test), callbacks=[early_stopping])
+
+# Evaluate the model
+predicted_stock_price = model.predict(X_test)
+predicted_stock_price = scaler.inverse_transform(predicted_stock_price)
+
+# Inverse scale the actual stock prices
+y_test_scaled = scaler.inverse_transform(y_test.reshape(-1, 1))
+
+# Calculate MAPE
+mape = mean_absolute_percentage_error(y_test_scaled, predicted_stock_price)
+print(f"Mean Absolute Percentage Error (MAPE): {mape:.2f}%")
+
+# Plot the results
+plt.figure(figsize=(10, 6))
+plt.plot(test_dates, y_test_scaled, label="Actual Tesla Stock Price", color='blue')
+plt.plot(test_dates, predicted_stock_price, label="Predicted Tesla Stock Price", color='red')
+plt.title('Tesla Stock Price Prediction with LSTM', fontsize=14)
+plt.xlabel('Time', fontsize=12)
+plt.ylabel('Scaled Stock Price (USD)', fontsize=12)
+plt.legend()
+plt.grid(True)
+st.pyplot(plt)
+
