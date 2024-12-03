@@ -16,7 +16,7 @@ today = datetime.date.today()
 yesterday = today - datetime.timedelta(days=1)
 
 # Title of the Streamlit app
-st.title(" DESSI - Stock Price Simulation with GBM")
+st.title(" DESSI - Stock Price Simulation")
 
 # Stock selection (user can choose the stock)
 stock_symbol = st.selectbox(
