@@ -260,14 +260,113 @@ y_test_scaled = scaler.inverse_transform(y_test.reshape(-1, 1))
 mape = mean_absolute_percentage_error(y_test_scaled, predicted_stock_price)
 print(f"Mean Absolute Percentage Error (MAPE): {mape:.2f}%")
 
+import matplotlib.pyplot as plt
+import numpy as np
+import tensorflow as tf
+from keras.models import Sequential
+from keras.layers import LSTM, Dense, Dropout, Attention, Add, LayerNormalization, Layer
+from keras.callbacks import EarlyStopping
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.metrics import mean_absolute_percentage_error
+
+# Define a custom attention layer
+class AttentionLayer(Layer):
+    def __init__(self, **kwargs):
+        super(AttentionLayer, self).__init__(**kwargs)
+
+    def build(self, input_shape):
+        self.W = self.add_weight(shape=(input_shape[2], input_shape[2]), initializer='random_normal', trainable=True)
+        self.b = self.add_weight(shape=(input_shape[1],), initializer='zeros', trainable=True)
+        super(AttentionLayer, self).build(input_shape)
+
+    def call(self, inputs):
+        q = tf.matmul(inputs, self.W)
+        a = tf.matmul(q, inputs, transpose_b=True)
+        attention_weights = tf.nn.softmax(a, axis=-1)
+        return tf.matmul(attention_weights, inputs)
+
+# LSTM model with attention and early stopping
+def build_lstm_model_with_attention(input_shape):
+    model = Sequential()
+    model.add(LSTM(units=50, return_sequences=True, input_shape=input_shape))
+    model.add(Dropout(0.2))
+
+    # Attention layer
+    model.add(AttentionLayer())
+    model.add(LayerNormalization())
+
+    model.add(LSTM(units=50, return_sequences=False))
+    model.add(Dropout(0.2))
+    model.add(Dense(units=1))  # Output layer for prediction
+
+    model.compile(optimizer='adam', loss='mean_squared_error')
+    return model
+
+
+# Build the LSTM model with attention
+model = build_lstm_model_with_attention(X_train.shape[1:])
+
+# Implement EarlyStopping to prevent overfitting
+early_stopping = EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)
+
+# Train the model with EarlyStopping and 50 epochs
+history = model.fit(X_train, y_train, epochs=50, batch_size=32, validation_data=(X_test, y_test), callbacks=[early_stopping])
+
+# Evaluate the model
+predicted_stock_price = model.predict(X_test)
+predicted_stock_price = scaler.inverse_transform(predicted_stock_price)
+
+# Inverse scale the actual stock prices
+y_test_scaled = scaler.inverse_transform(y_test.reshape(-1, 1))
+
+# Calculate MAPE
+mape = mean_absolute_percentage_error(y_test_scaled, predicted_stock_price)
+print(f"Mean Absolute Percentage Error (MAPE): {mape:.2f}%")
+
+#future predictions
+
+prediction_steps = 30
+def create_sequences(data, window_size, prediction_steps):
+    X = []
+    y = []
+    for i in range(window_size, len(data) - prediction_steps):
+        X.append(data[i - window_size:i, 0])  # Input sequence
+        y.append(data[i + prediction_steps - 1, 0])  # Target value (price 30 days ahead)
+    return np.array(X), np.array(y)
+
+last_window_data = scaled_data[-window_size:]
+last_window_data = last_window_data.reshape(1, window_size, 1)
+
+future_predictions = []
+for i in range(30):  # Predict for 30 days
+    prediction = model.predict(last_window_data)
+    future_predictions.append(prediction[0, 0])
+    last_window_data = np.append(last_window_data[:, 1:, :], prediction.reshape(1, 1, 1), axis=1)
+
+future_predictions = scaler.inverse_transform(np.array(future_predictions).reshape(-1, 1))
+
+import datetime
+today = datetime.date.today()
+future_dates = [today + datetime.timedelta(days=i) for i in range(1, 31)]  # 30 days
+
 # Plot the results
-plt.figure(figsize=(10, 6))
-plt.plot(test_dates, y_test_scaled, label=f"Actual {stock_symbol} Stock Price", color='blue')
-plt.plot(test_dates, predicted_stock_price, label=f"Predicted {stock_symbol} Stock Price", color='red')
-plt.title(f'{stock_symbol} Stock Price Prediction with LSTM', fontsize=14)
+plt.figure(figsize=(12, 6))
+
+# Actual data
+plt.plot(test_dates, y_test_scaled, label="Actual Tesla Stock Price", color='blue')
+
+# Modeled data
+#plt.plot(test_dates, predicted_stock_price, label="Predicted Tesla Stock Price (LSTM)", color='red')
+
+# Future 30-day predictions
+plt.plot(future_dates, future_predictions, label=f"Predicted {stock_symbol} Stock Price (LSTM) - Next 30 Days", color='green', linestyle='--')
+
+plt.title('Stock Price Prediction with LSTM (Including 30-Day Prediction)', fontsize=14)
 plt.xlabel('Time', fontsize=12)
 plt.ylabel('Scaled Stock Price (USD)', fontsize=12)
 plt.legend()
 plt.grid(True)
-st.pyplot(plt)
+plt.show()
+st.pyplot(plt)  # Display the second plot in Streamlit
+
 
