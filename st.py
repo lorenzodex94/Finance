@@ -1,193 +1,180 @@
-import streamlit as st
-import yfinance as yf
+import numpy as np
 import pandas as pd
-import schedule
-import time
+import yfinance as yf
+import streamlit as st
+import matplotlib.pyplot as plt
+import datetime
+from sklearn.mixture import GaussianMixture
+from sklearn.linear_model import LinearRegression
+from sklearn.preprocessing import PolynomialFeatures
+from sklearn.pipeline import make_pipeline
+from sklearn.metrics import mean_squared_error
 import ollama
-from datetime import datetime, timedelta
 
-# Streamlit UI
-st.title("AI Stock Advisor")
-logtxtbox = st.empty()
-logtxt = '09:30:00'
-logtxtbox.caption(logtxt)
+# Get today's date
+today = datetime.date.today()
+yesterday = today - datetime.timedelta(days=1)
 
+# Title of the Streamlit app
+st.title(" DESSI - Stock Price Simulation with GBM")
 
-# Fetching historical data for Apple (AAPL) and Dow Jones (DJI) for yesterday (1-minute intervals)
-stock = yf.Ticker("AAPL")
-dow_jones = yf.Ticker("^DJI")
-data = stock.history(period="1y", interval="1d")
-dow_data = dow_jones.history(period="1y", interval="1d")
-#data.reset_index(inplace=True, drop=True)
-#dow_data.reset_index(inplace=True, drop=True)
+# Stock selection (user can choose the stock)
+stock_symbol = st.selectbox(
+    "Select a stock symbol",
+    ('RACE.MI','GOOGL', 'AAPL', 'MSFT', 'META', 'NVDA', 'SPY', 'TSLA', 'AMZN','XLC')  # You can add more symbols if needed
+)
 
+# Fetch historical data for the selected stock
+googl_hist = yf.download(stock_symbol, start='2020-01-01', end=yesterday)
 
-# Global variables to store rolling data for analysis
-rolling_window = pd.DataFrame()
-dow_rolling_window = pd.DataFrame()
+# Calculate daily returns
+googl_hist['Return'] = googl_hist['Close'].pct_change().dropna()
 
-# Variables to track daily context
-daily_high = float('-inf')
-daily_low = float('inf')
-buying_momentum = 0
-selling_momentum = 0
+# Estimate drift (annualized) and volatility (annualized)
+returns = googl_hist['Return'].dropna()
+mu = returns.mean() * 252  # Annualize the mean
+sigma = returns.std() * (252 ** 0.5)  # Annualize the standard deviation
 
+# Set the initial stock price (last closing price)
+S0 = googl_hist['Close'].iloc[-1]
 
+# Define simulation parameters
+T = (datetime.datetime(2025, 6, 1) - googl_hist.index[-1]).days / 365  # Total simulation time (in years)
+N = int(T * 252)  # Number of time steps (252 trading days in a year)
 
-# Function to process a new stock update every minute
-def process_stock_update():
-    global rolling_window, data, dow_rolling_window, dow_data
-    global daily_high, daily_low, buying_momentum, selling_momentum
+# Allow the user to choose the number of simulated paths
+num_paths = st.slider("Select number of simulation paths", min_value=1, max_value=50, value=5)
 
-    if not data.empty and not dow_data.empty:
-        # Simulate receiving a new data point for AAPL and Dow Jones
-        update = data.iloc[0].to_frame().T
-        time_str = update.index[0].time()
-        print(time_str)
-        logtxtbox.caption(time_str)
-        dow_update = dow_data.iloc[0].to_frame().T
-        data = data.iloc[1:]  # Safely remove the first row without causing index issues
-        dow_data = dow_data.iloc[1:]
+# Function to simulate multiple GBM paths
+def simulate_gbm_multiple_paths(S0, mu, sigma, T, N, num_paths):
+    dt = T / N
+    t = np.linspace(0, T, N)
+    paths = np.zeros((N, num_paths))
+    for i in range(num_paths):
+        W = np.random.standard_normal(size=N)
+        W = np.cumsum(W) * np.sqrt(dt)  # Brownian motion component
+        paths[:, i] = S0 * np.exp((mu - 0.5 * sigma**2) * t + sigma * W)
+    return paths
 
-        # Append the new data points to the rolling windows
-        rolling_window = pd.concat([rolling_window, update], ignore_index=False)
-        dow_rolling_window = pd.concat([dow_rolling_window, dow_update], ignore_index=False)
+# Simulate GBM paths
+simulated_paths = simulate_gbm_multiple_paths(S0, mu, sigma, T, N, num_paths)
 
-        # Update daily high and low
-        daily_high = max(daily_high, update['Close'].values[0])
-        daily_low = min(daily_low, update['Close'].values[0])
+# Actual final price (last known closing price)
+actual_final_price = googl_hist['Close'].iloc[-1]
+last_trading_date = googl_hist.index[-1]
 
-        # Calculate momentum based on price changes
-        if len(rolling_window) >= 2:
-            price_change = update['Close'].values[0] - rolling_window['Close'].iloc[-2]
-            if price_change > 0:
-                buying_momentum += price_change
-            else:
-                selling_momentum += abs(price_change)
-                
-        # Limit the rolling window to 5 minutes for moving average
-        if len(rolling_window) > 5:
-            rolling_window = rolling_window.iloc[1:]
+# Create a date range for the simulation starting from the last trading date
+future_dates = pd.date_range(last_trading_date, periods=N, freq='B')  # Business days for the simulated data
 
-        if len(dow_rolling_window) > 5:
-            dow_rolling_window = dow_rolling_window.iloc[1:]
+# Plot the actual price and all simulated prices
+plt.figure(figsize=(12, 6))
+plt.plot(googl_hist.index, googl_hist['Close'], color='blue', label='Actual Closing Prices')  # Actual closing prices
 
-        # Calculate insights (moving averages, Bollinger Bands, RSI, etc.)
-        calculate_insights(rolling_window, dow_rolling_window)
+# Plot all simulated paths starting from the last actual price
+for i in range(num_paths):
+    plt.plot(future_dates, simulated_paths[:, i], alpha=0.7, label='Simulated Price' if i == 0 else "")
 
+plt.axhline(y=actual_final_price, color='red', linestyle='--', label='Actual Price')  # Actual price line
+plt.title(f"Simulated Stock Prices for {stock_symbol} (Starting from Last Trading Date) - up {yesterday}")
+plt.xlabel("Date")
+plt.ylabel("Price")
+plt.legend()
+plt.grid()
+st.pyplot(plt)  # Display the plot in Streamlit
 
-def get_market_open_duration(window):
-    # Extract current time from the last element of the window
-    current_time = window.index[-1].time()  # Returns a datetime.time object
-    
-    # Get the previous trading day's date
-    previous_trading_day = datetime.today() - timedelta(days=1)
-    
-    # Combine the previous trading day with the current time
-    current_datetime = datetime.combine(previous_trading_day, current_time)
-    
-    # Define the market opening time as 09:30:00 on the previous trading day
-    market_start_time = datetime.combine(previous_trading_day, datetime.strptime("09:30:00", "%H:%M:%S").time())
-    
-    # Calculate the duration the market has been open in minutes
-    market_open_duration = (current_datetime - market_start_time).total_seconds() / 60  # in minutes
-    
-    return market_open_duration
+#################################################################################################################################################
+ticker = stock_symbol
 
+# Function for fetching and cleaning stock data
+def get_clean_financial_data(stock_symbol, start_date, end_date):
+    # Download data
+    data = yf.download(stock_symbol, start=start_date, end=end_date)
 
-# Function to calculate insights like moving averages and trends
-def calculate_insights(window, dow_window):
-    if len(window) >= 5:
-        # Calculate 5-minute rolling average of the 'Close' prices
-        rolling_avg = window['Close'].rolling(window=5).mean().iloc[-1]
+    # Clean structure
+    data.columns = data.columns.get_level_values(0)
 
-        # Calculate price change and volume change
-        price_change = window['Close'].iloc[-1] - window['Close'].iloc[-2] if len(window) >= 2 else 0
-        volume_change = window['Volume'].iloc[-1] - window['Volume'].iloc[-2] if len(window) >= 2 else 0
+    # Handle missing values
+    data = data.ffill()
 
-        # Calculate DOW price change and volume change
-        dow_price_change = dow_window['Close'].iloc[-1] - dow_window['Close'].iloc[-2] if len(dow_window) >= 2 else 0
-        dow_volume_change = dow_window['Volume'].iloc[-1] - dow_window['Volume'].iloc[-2] if len(dow_window) >= 2 else 0
-    
-        # Calculate Exponential Moving Average (EMA) and Bollinger Bands (with a 5-period window)
-        ema = window['Close'].ewm(span=5, adjust=False).mean().iloc[-1]
-        std = window['Close'].rolling(window=5).std().iloc[-1]
-        bollinger_upper = rolling_avg + (2 * std)
-        bollinger_lower = rolling_avg - (2 * std)
+    # Standardize timezone
+    data.index = data.index.tz_localize(None)
 
-        # Calculate Relative Strength Index (RSI) if there are enough periods (14 is typical)
-        delta = window['Close'].diff()
-        gain = delta.where(delta > 0, 0)
-        loss = -delta.where(delta < 0, 0)
-        avg_gain = gain.rolling(window=14, min_periods=1).mean().iloc[-1]
-        avg_loss = loss.rolling(window=14, min_periods=1).mean().iloc[-1]
-        rs = avg_gain / avg_loss if avg_loss != 0 else float('nan')
-        rsi = 100 - (100 / (1 + rs))
+    return data
 
-        # Calculate Dow Jones index rolling average
-        dow_rolling_avg = dow_window['Close'].rolling(window=5).mean().iloc[-1]
-        
-        market_open_duration = get_market_open_duration(window)
+# Fetch historical stock data for DIA (Dow Jones Industrial Average ETF)
+data = get_clean_financial_data(stock_symbol, '2020-01-01', yesterday)
 
-        # Print the calculated insights
-        print(f"5-minute Rolling Average: {rolling_avg:.2f}")
-        print(f"EMA: {ema:.2f}")
-        print(f"RSI: {rsi:.2f}")
-        print(f"Bollinger Upper Band: {bollinger_upper:.2f}, Lower Band: {bollinger_lower:.2f}")
-        print(f"Price Change: {price_change:.2f}")
-        print(f"Volume Change: {volume_change}")
-        print(f"DOW Price Change: {dow_price_change:.2f}")
-        print(f"DOW Volume Change: {dow_volume_change}")
-        print(f"Dow Jones 5-minute Rolling Average: {dow_rolling_avg:.2f}")
-        print(f"Daily High: {daily_high:.2f}, Daily Low: {daily_low:.2f}")
-        print(f"Buying Momentum: {buying_momentum:.2f}, Selling Momentum: {selling_momentum:.2f}")
-        print(f"Market has been open for {market_open_duration:.2f} minutes")
-        
-        if int(market_open_duration) % 5 == 0:  # Trigger LLM every 5 minutes
-            get_natural_language_insights(
-                rolling_avg, ema, rsi, bollinger_upper, bollinger_lower,
-                price_change, volume_change, dow_rolling_avg, market_open_duration, dow_price_change, dow_volume_change, daily_high, daily_low, buying_momentum, selling_momentum, window.index[-1].time().strftime("%H:%M:%S")
-            )
+# Use the 'Close' price as the target variable
+data = data.reset_index()
+data['Date_Ordinal'] = pd.to_numeric(data['Date'].map(pd.Timestamp.toordinal))
 
-# Function to generate natural language insights using Ollama
-def get_natural_language_insights(
-    rolling_avg, ema, rsi, bollinger_upper, bollinger_lower,
-    price_change, volume_change, dow_rolling_avg, market_open_duration, dow_price_change, dow_volume_change, daily_high, daily_low, buying_momentum, selling_momentum, timestamp
+# Prepare features and target variable
+X = data[['Date_Ordinal']].values
+y = data['Close'].values
 
-):
-    prompt = f"""
-    You are a professional stock broker. Apple's stock has a 5-minute rolling average of {rolling_avg:.2f}.
-    The Exponential Moving Average (EMA) is {ema:.2f}, and the Relative Strength Index (RSI) is {rsi:.2f}.
-    The Bollinger Bands are set with an upper band of {bollinger_upper:.2f} and a lower band of {bollinger_lower:.2f}.
-    The price has changed by {price_change:.2f}, and the volume has shifted by {volume_change}.
-    The DOW price has changed by {dow_price_change:.2f}, and the volume has shifted by {dow_volume_change}.
-    Meanwhile, the Dow Jones index has a 5-minute rolling average of {dow_rolling_avg:.2f}.
-    The market has been open for {market_open_duration:.2f} minutes.
-    Today's high was {daily_high:.2f} and low was {daily_low:.2f}.
-    The buying momentum is {buying_momentum:.2f} and selling momentum is {selling_momentum:.2f}.
-    Based on this data, provide insights into the current stock trend and the general market sentiment.
-    The insights should not be longer than 100 words and should not have an introduction.
-    """
-    response = ollama.chat(
-            model="llama3",
-            messages=[{"role": "user", "content": prompt}]
-        )
-    response_text = response['message']['content'].strip()
-    message = st.chat_message("assistant")
-    message.write(timestamp)
-    message.write(response_text)
-    print("Natural Language Insight:", response_text)
+# Fit a Gaussian Mixture Model (GMM) to the data
+gmm = GaussianMixture(n_components=3, covariance_type='full', random_state=42)
+gmm.fit(X)
 
-# Schedule job to simulate receiving updates every minute
-schedule.every(1).minute.do(process_stock_update)  
+# Predict the latent values using the GMM
+latent_features = gmm.predict_proba(X)
 
+# Combine latent features with original features
+X_latent = np.hstack([X, latent_features])
 
-message = st.chat_message("assistant")
-message.write("Starting real-time simulation for AAPL stock updates. First update will be processed in 5 minutes...")    
-# Run the scheduled jobs
-print("Starting real-time simulation for AAPL stock updates...")
-while True:
-    schedule.run_pending()
-    time.sleep(1)
+# Fit a polynomial regression model on the combined features
+poly_reg = make_pipeline(PolynomialFeatures(degree=2), LinearRegression())
+poly_reg.fit(X_latent, y)
 
+# Predict and evaluate the model
+y_pred = poly_reg.predict(X_latent)
+mse = mean_squared_error(y, y_pred)
 
+# Calculate the residuals and their standard deviation
+residuals = y - y_pred
+std_dev = np.std(residuals)
+
+# Create upper and lower standard deviation lines
+upper_bound = y_pred + 2 * std_dev
+lower_bound = y_pred - 2 * std_dev
+
+# Create buy and sell signals
+data['Buy_Signal'] = np.where(y < lower_bound, 1, 0)   # Buy when price is below lower bound
+data['Sell_Signal'] = np.where(y > upper_bound, 1, 0)  # Sell when price is above upper bound
+
+# Plotting
+plt.figure(figsize=(12, 6))
+plt.title(f'Polynomial Regression {stock_symbol} Data with Buy and Sell Signals - update {yesterday}')
+
+# Plot price data
+plt.plot(data['Date'], y, color='blue', label='Actual Closing Price')
+plt.plot(data['Date'], y_pred, color='red', linestyle='--', label='Fitted Values')
+plt.plot(data['Date'], upper_bound, color='green', linestyle=':', label='Upper Bound (±2 Std Dev)')
+plt.plot(data['Date'], lower_bound, color='green', linestyle=':', label='Lower Bound (±2 Std Dev)')
+plt.fill_between(data['Date'], lower_bound, upper_bound, color='green', alpha=0.1)
+
+# Plot Buy Signals
+buy_signals = data[data['Buy_Signal'] == 1]
+plt.scatter(buy_signals['Date'], buy_signals['Close'], marker='^', color='magenta', label='Buy Signal', s=100)
+
+# Plot Sell Signals
+sell_signals = data[data['Sell_Signal'] == 1]
+plt.scatter(sell_signals['Date'], sell_signals['Close'], marker='v', color='orange', label='Sell Signal', s=100)
+
+plt.ylabel('Close Price')
+plt.xlabel('Date')
+plt.xticks(rotation=0)
+plt.legend()
+plt.tight_layout()
+plt.grid(True)
+plt.show()
+st.pyplot(plt)
+
+# Create a second plot for the distribution of daily returns
+plt.figure(figsize=(10, 5))
+plt.hist(returns, bins=30, color='orange', alpha=0.7, edgecolor='black')
+plt.title(f"Distribution of Daily Returns for {stock_symbol} - update {yesterday}")
+plt.xlabel("Daily Returns")
+plt.ylabel("Frequency")
+plt.grid()
+st.pyplot(plt)  # Display the second plot in Streamlit
