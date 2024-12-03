@@ -351,11 +351,12 @@ future_dates = [today + datetime.timedelta(days=i) for i in range(1, 31)]  # 30 
 
 # Plot the results
 plt.figure(figsize=(12, 6))
-plt.plot(test_dates, y_test_scaled, label=f"Actual {stock_symbol} Stock Price", color='blue')
-plt.plot(future_dates, future_predictions, label=f"Predicted {stock_symbol} Stock Price (LSTM) - Next 30 Days", color='green', linestyle='--') # Future 30-day predictions
-plt.title(f'Stock {stock_symbol} Price Prediction  with LSTM (Including 30-Day Prediction)', fontsize=14)
+plt.plot(test_dates, y_test_scaled, label="ActualStock Price", color='blue')
+plt.plot(future_dates, future_predictions, label="Predicted Stock Price (LSTM) - Next 30 Days", color='green', linestyle='--') # Future 30-day predictions
+plt.title('Stock Price Prediction  with LSTM (Including 30-Day Prediction)', fontsize=14)
 plt.xlabel('Time', fontsize=12)
 plt.ylabel('Scaled Stock Price (USD)', fontsize=12)
+
 plt.legend()
 plt.grid(True)
 plt.show()
