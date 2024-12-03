@@ -252,10 +252,10 @@ future_dates = [today + datetime.timedelta(days=i) for i in range(1, 31)]  # 30 
 
 # Plot the results for RNN model
 plt.figure(figsize=(12, 6))
-plt.plot(test_dates, y_test_scaled, label="Actual Tesla Stock Price", color='blue')
-plt.plot(test_dates, predicted_stock_price_rnn, label="Predicted Tesla Stock Price", color='red')
-plt.plot(future_dates, future_predictions, label="Predicted Tesla Stock Price (RNN)") 
-plt.title('Tesla Stock Price Prediction with RNN', fontsize=14)
+plt.plot(test_dates, y_test_scaled, label="Actual Stock Price", color='blue')
+plt.plot(test_dates, predicted_stock_price_rnn, label="Predicted Stock Price", color='red')
+plt.plot(future_dates, future_predictions, label="Predicted Stock Price (RNN)") 
+plt.title('Stock Price Prediction with RNN', fontsize=14)
 plt.xlabel('Time', fontsize=12)
 plt.ylabel(' Scaled Stock Price (USD)', fontsize=12)
 plt.legend()
