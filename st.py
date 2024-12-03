@@ -132,8 +132,219 @@ plt.grid()
 st.pyplot(plt)  # Display the second plot in Streamlit
 
 
-#############################################################################################################################
+###################################################################################################################################### Fred Normer Approach
+import torch
+import torch.nn as nn
+import torch.optim as optim
+import numpy as np
+import yfinance as yf
+import matplotlib.pyplot as plt
+from torch.utils.data import DataLoader, TensorDataset
+from sklearn.preprocessing import MinMaxScaler
+from scipy.fftpack import fft, ifft
+from sklearn.metrics import mean_absolute_error, mean_absolute_percentage_error
 
+# Check if GPU is available
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(f"Using device: {device}")
+
+# Fetching Reliance stock data from yfinance
+ticker = "TSLA"
+data = yf.download(ticker, start="2020-01-01", end=yesterday, interval="1d")
+close_prices = data['Close'].values
+
+
+# Function to apply Fourier Transform and return stable frequencies
+def frednormer_transform(data, threshold=0.05):  # Lower threshold to preserve more details
+    # Apply Fourier Transform
+    freq_data = fft(data)
+
+    # Compute amplitude
+    amplitude = np.abs(freq_data)
+
+    # Stability measure: Coefficient of Variation
+    stable_freqs = np.where(amplitude > threshold * np.max(amplitude), freq_data, freq_data)  # Retain more frequencies
+
+    # Return filtered data in time domain using Inverse FFT
+    filtered_data = np.real(ifft(stable_freqs))
+
+    return filtered_data
+
+# Applying FredNormer on closing prices
+filtered_prices = frednormer_transform(close_prices)
+
+# Plotting the transformed data
+
+plt.plot(data.index, close_prices)
+plt.plot(data.index, filtered_prices)
+plt.title(f'FredNormer Transformed Prices {ticker} - updated {today}')
+plt.legend(['Original Prices', 'Filtered Prices'])
+plt.xticks(rotation=45, ha='right')
+plt.grid(True)
+plt.show()
+
+# Prepare data for LSTM
+scaler = MinMaxScaler()
+scaled_data = scaler.fit_transform(filtered_prices.reshape(-1, 1)).flatten()
+
+# Create sequences for LSTM input
+def create_sequences(data, seq_length):
+    xs, ys = [], []
+    for i in range(len(data) - seq_length):
+        x = data[i:i+seq_length]
+        y = data[i+seq_length]
+        xs.append(x)
+        ys.append(y)
+    return np.array(xs), np.array(ys)
+
+SEQ_LENGTH = 7  # 60 days sequence
+X, y = create_sequences(scaled_data, SEQ_LENGTH)
+
+# Train-test split
+train_size = int(len(X) * 0.8)
+X_train, X_test = X[:train_size], X[train_size:]
+y_train, y_test = y[:train_size], y[train_size:]
+
+# Convert to PyTorch tensors
+X_train_tensor = torch.tensor(X_train, dtype=torch.float32).to(device)
+y_train_tensor = torch.tensor(y_train, dtype=torch.float32).to(device)
+X_test_tensor = torch.tensor(X_test, dtype=torch.float32).to(device)
+y_test_tensor = torch.tensor(y_test, dtype=torch.float32).to(device)
+
+# Create DataLoader
+train_dataset = TensorDataset(X_train_tensor, y_train_tensor)
+test_dataset = TensorDataset(X_test_tensor, y_test_tensor)
+train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
+test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
+
+# Define LSTM model
+class LSTMModel(nn.Module):
+    def __init__(self, input_size=1, hidden_size=128, num_layers=3, output_size=1):  # Adjust hidden size and layers
+        super(LSTMModel, self).__init__()
+        self.hidden_size = hidden_size
+        self.num_layers = num_layers
+        self.lstm = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True)
+        self.fc = nn.Linear(hidden_size, output_size)
+
+    def forward(self, x):
+        h0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(device)
+        c0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(device)
+        out, _ = self.lstm(x.unsqueeze(-1), (h0, c0))
+        out = self.fc(out[:, -1, :])  # Take the output of the last LSTM cell
+        return out
+
+# Initialize model, loss function, and optimizer
+model = LSTMModel().to(device)
+criterion = nn.MSELoss()
+optimizer = optim.Adam(model.parameters(), lr=0.001)
+
+# Training loop
+EPOCHS = 150  # Increase epochs for better learning
+train_losses = []
+test_losses = []
+
+for epoch in range(EPOCHS):
+    model.train()
+    running_loss = 0.0
+    for X_batch, y_batch in train_loader:
+        optimizer.zero_grad()
+        outputs = model(X_batch)
+        loss = criterion(outputs.squeeze(), y_batch)
+        loss.backward()
+        optimizer.step()
+        running_loss += loss.item()
+
+    train_losses.append(running_loss / len(train_loader))
+
+    # Evaluate on the test set
+    model.eval()
+    test_loss = 0.0
+    with torch.no_grad():
+        for X_batch, y_batch in test_loader:
+            outputs = model(X_batch)
+            loss = criterion(outputs.squeeze(), y_batch)
+            test_loss += loss.item()
+
+    test_losses.append(test_loss / len(test_loader))
+
+    print(f"Epoch {epoch+1}/{EPOCHS}, Train Loss: {train_losses[-1]}, Test Loss: {test_losses[-1]}")
+
+
+# Testing loop and metric evaluation
+model.eval()
+predictions, actuals = [], []
+with torch.no_grad():
+    for X_batch, y_batch in test_loader:
+        output = model(X_batch).squeeze()
+        predictions.append(output.cpu().numpy())
+        actuals.append(y_batch.cpu().numpy())
+
+predictions = np.concatenate(predictions)
+actuals = np.concatenate(actuals)
+
+# Inverse scale the predictions and actuals
+predictions = scaler.inverse_transform(predictions.reshape(-1, 1)).flatten()
+actuals = scaler.inverse_transform(actuals.reshape(-1, 1)).flatten()
+
+# Calculate MAE and MAPE
+mae = mean_absolute_error(actuals, predictions)
+mape = mean_absolute_percentage_error(actuals, predictions)
+
+print(f"Mean Absolute Error (MAE): {mae}")
+print(f"Mean Absolute Percentage Error (MAPE): {mape}")
+
+dates = [yesterday - datetime.timedelta(days=i) for i in range(len(predictions))]
+
+# Get the last sequence of data
+last_sequence = scaled_data[-SEQ_LENGTH:]
+
+# Make predictions for the next 30 days
+future_predictions = []
+for _ in range(30):
+    # Reshape the input sequence for the model
+    input_sequence = last_sequence.reshape(1, SEQ_LENGTH)  
+    input_sequence = torch.tensor(input_sequence, dtype=torch.float32).to(device)
+
+    # Make the prediction
+    prediction = model(input_sequence).cpu().detach().numpy()[0, 0]  
+
+    # Append the prediction to the list of future predictions
+    future_predictions.append(prediction)  
+
+    # Update the input sequence for the next prediction
+    last_sequence = np.append(last_sequence[1:], prediction)  
+
+# Inverse transform the predictions
+future_predictions = scaler.inverse_transform(np.array(future_predictions).reshape(-1, 1)).flatten()
+
+# Get future dates for plotting
+future_dates = [today + datetime.timedelta(days=i) for i in range(1, 31)]
+
+
+
+
+# Get yesterday's closing value
+yesterday_closing_value = data['Close'].iloc[-1]
+# Extract the closing price for 'RACE.MI'
+closing_price = yesterday_closing_value['TSLA']
+
+# Plot the predictions
+plt.figure(figsize=(12, 6))
+plt.axhline(y=data['Close'].iloc[-1].item(), color='red', linestyle='--', label=f"Yesterday's Price {closing_price:.2f}")
+plt.plot(data.index, close_prices, label='Actual Prices')
+plt.plot(future_dates, future_predictions, label='Predicted Prices (Next 30 Days)')
+plt.title('FredNormer LSTM Stock Price Prediction - Next 30 Days')
+plt.xlabel('Date')
+plt.ylabel('Stock Price')
+plt.xticks(rotation=45, ha='right')  # Rotate x-axis labels for better readability
+plt.grid(True)
+plt.legend()
+st.pyplot(plt) 
+
+
+
+
+##################################################################################
 def fetch_tesla_stock_data():
     """
     Fetch Tesla's historical stock data from Yahoo Finance.
@@ -192,8 +403,6 @@ print(f"Testing data shape: {X_test.shape}")
 
 # Assuming tesla_data contains your original DataFrame with a 'date' index
 test_dates = tesla_data.index[len(tesla_data) - len(y_test):]
-
-
 
 ############################# RNN
 
