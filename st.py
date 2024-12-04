@@ -21,7 +21,7 @@ st.title(" DESSI - Stock Price Simulation")
 # Stock selection (user can choose the stock)
 stock_symbol = st.selectbox(
     "Select a stock symbol",
-    ('RACE.MI','GOOGL', 'AAPL', 'MSFT', 'META', 'NVDA', 'SPY', 'TSLA', 'AMZN','XLC')  # You can add more symbols if needed
+    ('RACE.MI','GOOGL', 'AAPL', 'MSFT', 'META', 'NVDA', 'SPY', 'TSLA', 'AMZN','VUSA','VUAA')  # You can add more symbols if needed
 )
 
 # Fetch historical data for the selected stock
