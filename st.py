@@ -326,7 +326,7 @@ future_dates = [today + datetime.timedelta(days=i) for i in range(1, 31)]
 # Get yesterday's closing value
 yesterday_closing_value = data['Close'].iloc[-1]
 # Extract the closing price for 'RACE.MI'
-closing_price = yesterday_closing_value['TSLA']
+closing_price = yesterday_closing_value[ticker]
 
 # Plot the predictions
 plt.figure(figsize=(12, 6))
