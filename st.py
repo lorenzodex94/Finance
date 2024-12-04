@@ -471,3 +471,5 @@ plt.ylabel(' Scaled Stock Price (USD)', fontsize=14)
 plt.legend()
 plt.grid(True)
 st.pyplot(plt) 
+
+st.write(f"Mean Absolute Percentage Error (MAPE) for RNN: {mape_rnn:.2f}%")
