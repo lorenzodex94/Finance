@@ -293,8 +293,6 @@ mape = mean_absolute_percentage_error(actuals, predictions)
 print(f"Mean Absolute Error (MAE): {mae}")
 print(f"Mean Absolute Percentage Error (MAPE): {mape}")
 
-st.write(f"Mean Absolute Error (MAE): {mae}")
-
 dates = [yesterday - datetime.timedelta(days=i) for i in range(len(predictions))]
 
 # Get the last sequence of data
@@ -332,7 +330,7 @@ closing_price = yesterday_closing_value[ticker]
 
 # Plot the predictions
 plt.figure(figsize=(12, 6))
-plt.axhline(y=data['Close'].iloc[-1].item(), color='red', linestyle='--', label=f"Yesterday's Price {closing_price:.2f}")
+plt.axhline(y=data['Close'].iloc[-1].item(), color='red', linestyle='--', label=f" {yesterday}'s Price {closing_price:.2f}")
 plt.plot(data.index, close_prices, label='Actual Prices')
 plt.plot(future_dates, future_predictions, label='Predicted Prices (Next 30 Days)')
 plt.title('FredNormer LSTM Stock Price Prediction - Next 30 Days')
@@ -343,7 +341,8 @@ plt.grid(True)
 plt.legend()
 st.pyplot(plt) 
 
-
+st.write(f"Mean Absolute Error (MAE): {mae}")
+st.write(f"Mean Absolute Percentage Error (MAPE): {mape}")
 
 
 ##################################################################################
