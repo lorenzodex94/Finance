@@ -293,6 +293,8 @@ mape = mean_absolute_percentage_error(actuals, predictions)
 print(f"Mean Absolute Error (MAE): {mae}")
 print(f"Mean Absolute Percentage Error (MAPE): {mape}")
 
+st.write(f"Mean Absolute Error (MAE): {mae}")
+
 dates = [yesterday - datetime.timedelta(days=i) for i in range(len(predictions))]
 
 # Get the last sequence of data
