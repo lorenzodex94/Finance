@@ -133,7 +133,7 @@ forecast = model.predict(future)
 
 # Extract last year of data
 plt.figure(figsize=(12, 6))
-plt.plot(forecast['ds'][-days_to_predict:], forecast['yhat'][-days_to_predict:], label='Predicted (Next 30 Days)', linestyle='--')
+plt.plot(forecast['ds'][-days_to_predict:], forecast['yhat'][-days_to_predict:], label=f'Predicted (Next {days_to_predict} Days)', linestyle='--')
 plt.plot(forecast['ds'][:-days_to_predict], forecast['yhat'][:-days_to_predict], label='Modelled')
 plt.plot(df['ds'], df['y'], label='Actual')
 plt.legend()
