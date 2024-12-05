@@ -144,7 +144,5 @@ plt.ylabel('Close Price')
 plt.xticks(rotation=45, ha='right')  
 plt.show()
 
-
-
 st.pyplot(plt)
 
