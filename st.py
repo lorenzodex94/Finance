@@ -10,6 +10,8 @@ from sklearn.preprocessing import PolynomialFeatures
 from sklearn.pipeline import make_pipeline
 from sklearn.metrics import mean_squared_error
 import ollama
+from prophet import Prophet
+from sklearn.metrics import mean_squared_error, mean_absolute_error, mean_absolute_percentage_error
 
 # Get today's date
 today = datetime.date.today()
@@ -25,15 +27,15 @@ stock_symbol = st.selectbox(
 )
 
 # Fetch historical data for the selected stock
-googl_hist = yf.download(stock_symbol, start='2020-01-01', end=yesterday)
+#googl_hist = yf.download(stock_symbol, start='2020-01-01', end=yesterday)
 
 # Calculate daily returns
-googl_hist['Return'] = googl_hist['Close'].pct_change().dropna()
+#googl_hist['Return'] = googl_hist['Close'].pct_change().dropna()
 
 # Estimate drift (annualized) and volatility (annualized)
-returns = googl_hist['Return'].dropna()
-mu = returns.mean() * 252  # Annualize the mean
-sigma = returns.std() * (252 ** 0.5)  # Annualize the standard deviation
+#returns = googl_hist['Return'].dropna()
+#mu = returns.mean() * 252  # Annualize the mean
+#sigma = returns.std() * (252 ** 0.5)  # Annualize the standard deviation
 
 #################################################################################################################################################
 
@@ -121,15 +123,6 @@ plt.tight_layout()
 plt.grid(True)
 plt.show()
 st.pyplot(plt)
-
-# Create a second plot for the distribution of daily returns
-plt.figure(figsize=(10, 5))
-plt.hist(returns, bins=30, color='orange', alpha=0.7, edgecolor='black')
-plt.title(f"Distribution of Daily Returns for {stock_symbol} - update {yesterday}")
-plt.xlabel("Daily Returns")
-plt.ylabel("Frequency")
-plt.grid()
-st.pyplot(plt)  # Display the second plot in Streamlit
 
 
 ###################################################################################################################################### Fred Normer Approach
