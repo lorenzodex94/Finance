@@ -18,7 +18,7 @@ today = datetime.date.today()
 yesterday = today - datetime.timedelta(days=1)
 
 # Title of the Streamlit app
-st.title(" Dex :telescope: - Stock Price Simulation - :crystal_ball:")
+st.title(" Dex :telescope: - Stock Price Simulation  :crystal_ball:")
 st.header("Timehistory", divider=True)
 # Stock selection (user can choose the stock)
 stock_symbol = st.selectbox(
