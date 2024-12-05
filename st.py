@@ -222,7 +222,6 @@ def analyze_indices(tickers, start_date, end_date):
           plt.legend()
           plt.tight_layout()
           plt.grid(True)
-          plt.show()
           st.pyplot(plt)
 
         else:
@@ -265,7 +264,7 @@ signals_df = pd.DataFrame(signals_dict).T  # Transpose to make tickers rows
 filtered_df = signals_df[(signals_df['buy'] == 1) | (signals_df['sell'] == 1)]
 
 print(filtered_df)
-
+st.table(filtered_df)
 
 
 
