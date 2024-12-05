@@ -112,6 +112,8 @@ plt.grid(True)
 plt.show()
 st.pyplot(plt)
 
+######################## Prophet
+
 
 days_to_predict = st.slider("Giorni da Prevedere", 0, 90, 30)
 
@@ -136,7 +138,7 @@ plt.plot(forecast['ds'][:-days_to_predict], forecast['yhat'][:-days_to_predict],
 plt.plot(df['ds'], df['y'], label='Actual')
 plt.legend()
 plt.grid(True)
-plt.title(f'Prophet Model - Actual vs Predicted for {ticker}')
+plt.title(f'Prophet Model - Actual vs Predicted for {stock_symbol}')
 plt.xlabel('Date')
 plt.ylabel('Close Price')
 plt.xticks(rotation=45, ha='right')  
