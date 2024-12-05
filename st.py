@@ -19,7 +19,7 @@ yesterday = today - datetime.timedelta(days=1)
 
 # Title of the Streamlit app
 st.title(" DESSI - Stock Price Simulation")
-
+st.header("Timehistory", divider=True)
 # Stock selection (user can choose the stock)
 stock_symbol = st.selectbox(
     "Select a stock symbol",
