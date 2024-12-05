@@ -113,9 +113,9 @@ plt.show()
 st.pyplot(plt)
 
 ######################## Prophet
+st.header("Prophet Predictions", divider=True)
 
-
-days_to_predict = st.slider("Giorni da Prevedere", 0, 90, 30)
+days_to_predict = st.slider("Giorni da Prevedere", 0, 180, 30)
 
 df = data.reset_index()[['Date', 'Close']] 
 df.columns = ['ds', 'y']  
