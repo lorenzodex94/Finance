@@ -113,3 +113,36 @@ plt.show()
 st.pyplot(plt)
 
 
+days_to_predict = st.slider("Giorni da Prevedere", 0, 90, 30)
+
+df = data.reset_index()[['Date', 'Close']] 
+df.columns = ['ds', 'y']  
+df['ds'] = pd.to_datetime(df['ds'], format='%Y-%m-%d') # Format date
+
+# Create and fit the Prophet model
+model = Prophet()
+model.fit(df) 
+
+# Create future dates for prediction
+extended_time = model.make_future_dataframe(periods=days_to_predict)  # Predict for the next 30 days
+future = extended_time
+# Make predictions
+forecast = model.predict(future)
+
+# Extract last year of data
+plt.figure(figsize=(12, 6))
+plt.plot(forecast['ds'][-days_to_predict:], forecast['yhat'][-days_to_predict:], label='Predicted (Next 30 Days)', linestyle='--')
+plt.plot(forecast['ds'][:-days_to_predict], forecast['yhat'][:-days_to_predict], label='Modelled')
+plt.plot(df['ds'], df['y'], label='Actual')
+plt.legend()
+plt.grid(True)
+plt.title(f'Prophet Model - Actual vs Predicted for {ticker}')
+plt.xlabel('Date')
+plt.ylabel('Close Price')
+plt.xticks(rotation=45, ha='right')  
+plt.show()
+
+
+
+st.pyplot(plt)
+
