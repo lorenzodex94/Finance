@@ -9,3 +9,6 @@ tensorflow
 torch
 torchvision  
 prophet
+contextlib
+io
+scipy
