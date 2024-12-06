@@ -9,5 +9,4 @@ tensorflow
 torch
 torchvision  
 prophet
-contextlib
 
