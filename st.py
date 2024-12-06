@@ -373,20 +373,23 @@ monthly_results_df = monthly_results_df.sort_values(by='Probability (Monthly Ret
 print("Top 10 Stocks with Probability of Daily Return Greater Than 0%:\n")
 # Format output for daily results
 d1 = daily_results_df[['Stock', 'Mean Daily Return', 'Standard Deviation (Daily)', 'Probability (Daily Return > 0%)']].head(10).to_string(index=False, float_format='%.6f')
+d1_df = pd.DataFrame(d1) 
 print(daily_results_df[['Stock', 'Mean Daily Return', 'Standard Deviation (Daily)', 'Probability (Daily Return > 0%)']].head(10).to_string(index=False, float_format='%.6f'))
-st.table(d1)
+st.table(d1_df)
 
 print("\nTop 10 Stocks with Probability of Weekly Return Greater Than 0%:\n")
 # Format output for weekly results
 d2 = weekly_results_df[['Stock', 'Mean Weekly Return', 'Standard Deviation (Weekly)', 'Probability (Weekly Return > 0%)']].head(10).to_string(index=False, float_format='%.6f')
 print(weekly_results_df[['Stock', 'Mean Weekly Return', 'Standard Deviation (Weekly)', 'Probability (Weekly Return > 0%)']].head(10).to_string(index=False, float_format='%.6f'))
-st.table(d2)
+d2_df = pd.DataFrame(d2) 
+st.table(d2_df)
 
 print("\nTop 10 Stocks with Probability of Monthly Return Greater Than 0%:\n")
 # Format output for monthly results
 d3= monthly_results_df[['Stock', 'Mean Monthly Return', 'Standard Deviation (Monthly)', 'Probability (Monthly Return > 0%)']].head(10).to_string(index=False, float_format='%.6f')
 print(monthly_results_df[['Stock', 'Mean Monthly Return', 'Standard Deviation (Monthly)', 'Probability (Monthly Return > 0%)']].head(10).to_string(index=False, float_format='%.6f'))
-st.table(d3)
+d3_df = pd.DataFrame(d3) 
+st.table(d3_df)
 
 
 
