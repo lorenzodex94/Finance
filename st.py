@@ -23,7 +23,7 @@ st.header("Timehistory", divider=True)
 # Stock selection (user can choose the stock)
 stock_symbol = st.selectbox(
     "Select a stock symbol",
-    ('RACE.MI','LDO','GOOGL', 'AAPL', 'MSFT', 'META', 'NVDA', 'SPY', 'TSLA', 'AMZN','VUSA.L','VUAA.L')  # You can add more symbols if needed
+    ('RACE.MI','LDO.MI','GOOGL', 'AAPL', 'MSFT', 'META', 'NVDA', 'SPY', 'TSLA', 'AMZN','VUSA.L','VUAA.L')  # You can add more symbols if needed
 )
 
 
@@ -247,7 +247,7 @@ tickers = [
     'BKNG', 'ADP', 'LNT', 'DTE', 'ETR', 'DOV', 'NTRS', 'CARR', 'WBA',
     'KHC', 'MCO', 'VTRS', 'VFC', 'GWW', 'HIG', 'HWM', 'ICE', 'IP',
     'JCI', 'KMI', 'MSI', 'NWL', 'PGR', 'PH', 'PKG', 'RMD', 'SRE',
-    'WAB', 'WDC', 'WMT', 'WST', 'XYL', 'ZBRA','RACE.MI','SPY','VUSA.L','VUAA.L','DIA','LDO'
+    'WAB', 'WDC', 'WMT', 'WST', 'XYL', 'ZBRA','RACE.MI','SPY','VUSA.L','VUAA.L','DIA','LDO.MI'
 ]
 # Call the function to analyze the indices
 #analyze_indices(tickers, '2020-01-01', yesterday)
