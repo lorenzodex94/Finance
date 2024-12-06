@@ -13,6 +13,10 @@ import ollama
 from prophet import Prophet
 from sklearn.metrics import mean_squared_error, mean_absolute_error, mean_absolute_percentage_error
 
+
+
+
+
 # Get today's date
 today = datetime.date.today()
 yesterday = today - datetime.timedelta(days=1)
@@ -269,9 +273,6 @@ st.table(filtered_df)
 
 ##################
 
-import yfinance as yf
-import pandas as pd
-import numpy as np
 from scipy.stats import norm
 import contextlib
 import io
