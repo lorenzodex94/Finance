@@ -18,12 +18,12 @@ today = datetime.date.today()
 yesterday = today - datetime.timedelta(days=1)
 
 # Title of the Streamlit app
-st.title(" Dex :telescope: - Stock Price Simulation  :crystal_ball:")
+st.title(" AutoDex :telescope: - Oraculus  :crystal_ball:")
 st.header("Timehistory", divider=True)
 # Stock selection (user can choose the stock)
 stock_symbol = st.selectbox(
     "Select a stock symbol",
-    ('RACE.MI','GOOGL', 'AAPL', 'MSFT', 'META', 'NVDA', 'SPY', 'TSLA', 'AMZN','VUSA.L','VUAA.L')  # You can add more symbols if needed
+    ('RACE.MI','LDO','GOOGL', 'AAPL', 'MSFT', 'META', 'NVDA', 'SPY', 'TSLA', 'AMZN','VUSA.L','VUAA.L')  # You can add more symbols if needed
 )
 
 
@@ -247,7 +247,7 @@ tickers = [
     'BKNG', 'ADP', 'LNT', 'DTE', 'ETR', 'DOV', 'NTRS', 'CARR', 'WBA',
     'KHC', 'MCO', 'VTRS', 'VFC', 'GWW', 'HIG', 'HWM', 'ICE', 'IP',
     'JCI', 'KMI', 'MSI', 'NWL', 'PGR', 'PH', 'PKG', 'RMD', 'SRE',
-    'WAB', 'WDC', 'WMT', 'WST', 'XYL', 'ZBRA','RACE.MI','SPY','VUSA.L','VUAA.L','DIA',
+    'WAB', 'WDC', 'WMT', 'WST', 'XYL', 'ZBRA','RACE.MI','SPY','VUSA.L','VUAA.L','DIA','LDO'
 ]
 # Call the function to analyze the indices
 #analyze_indices(tickers, '2020-01-01', yesterday)
@@ -267,6 +267,126 @@ print(filtered_df)
 st.table(filtered_df)
 
 
+##################
+
+import yfinance as yf
+import pandas as pd
+import numpy as np
+from scipy.stats import norm
+import contextlib
+import io
+
+# List of top 50 stocks by market cap (you can modify this list as needed)
+top_50_stocks = tickers
+
+# Create lists to store results for daily, weekly, and monthly returns
+daily_results = []
+weekly_results = []
+monthly_results = []
+
+# Loop through each stock to fetch data and calculate probabilities
+for stock in top_50_stocks:
+    # Suppress the output of yfinance download
+    with contextlib.redirect_stdout(io.StringIO()):
+        # Fetch last 5 years of stock data
+        data = yf.download(stock, period='5y', interval='1d')  # Fetch daily data for better granularity
+    
+    # Calculate daily returns and add it to the DataFrame
+    data['Daily Return'] = data['Adj Close'].pct_change()  # Calculate daily returns
+
+    # Drop the first row (which contains NA for daily return) instead of using dropna on the entire column
+    daily_data = data[1:] 
+    
+    # Calculate mean and standard deviation of daily returns
+    mean_daily_return = daily_data['Daily Return'].mean()
+    std_daily_dev = daily_data['Daily Return'].std()
+
+    # Calculate the probability that daily return is greater than 0%
+    prob_daily_greater_than_0 = 1 - norm.cdf(0, mean_daily_return, std_daily_dev)
+
+    # Append the daily results
+    daily_results.append({
+        'Stock': stock,
+        'Mean Daily Return': mean_daily_return,
+        'Standard Deviation (Daily)': std_daily_dev,
+        'Probability (Daily Return > 0%)': prob_daily_greater_than_0
+    })
+
+    # Calculate weekly returns
+    data['Weekly Return'] = data['Adj Close'].pct_change(periods=5)  # Calculate weekly returns (5 trading days)
+
+    # Drop the first 5 rows (which contain NA for weekly return) instead of using dropna
+    weekly_data = data[5:]  
+
+
+    # Calculate mean and standard deviation of weekly returns
+    mean_weekly_return = weekly_data['Weekly Return'].mean()
+    std_weekly_dev = weekly_data['Weekly Return'].std()
+
+    # Calculate the probability that weekly return is greater than 0%
+    prob_weekly_greater_than_0 = 1 - norm.cdf(0, mean_weekly_return, std_weekly_dev)
+
+    # Append the weekly results
+    weekly_results.append({
+        'Stock': stock,
+        'Mean Weekly Return': mean_weekly_return,
+        'Standard Deviation (Weekly)': std_weekly_dev,
+        'Probability (Weekly Return > 0%)': prob_weekly_greater_than_0
+    })
+
+    # Calculate monthly returns
+    data['Monthly Return'] = data['Adj Close'].pct_change(periods=22)  # Calculate monthly returns (approx. 22 trading days)
+
+    # Drop NA values for monthly data
+    monthly_data = data[22:]
+
+    # Calculate mean and standard deviation of monthly returns
+    mean_monthly_return = monthly_data['Monthly Return'].mean()
+    std_monthly_dev = monthly_data['Monthly Return'].std()
+
+    # Calculate the probability that monthly return is greater than 0%
+    prob_monthly_greater_than_0 = 1 - norm.cdf(0, mean_monthly_return, std_monthly_dev)
+
+    # Append the monthly results
+    monthly_results.append({
+        'Stock': stock,
+        'Mean Monthly Return': mean_monthly_return,
+        'Standard Deviation (Monthly)': std_monthly_dev,
+        'Probability (Monthly Return > 0%)': prob_monthly_greater_than_0
+    })
+
+# Create DataFrames from the results
+daily_results_df = pd.DataFrame(daily_results)
+weekly_results_df = pd.DataFrame(weekly_results)
+monthly_results_df = pd.DataFrame(monthly_results)
+
+# Sort by probability of return > 0% for daily returns
+daily_results_df = daily_results_df.sort_values(by='Probability (Daily Return > 0%)', ascending=False)
+
+# Sort by probability of return > 0% for weekly returns
+weekly_results_df = weekly_results_df.sort_values(by='Probability (Weekly Return > 0%)', ascending=False)
+
+# Sort by probability of return > 0% for monthly returns
+monthly_results_df = monthly_results_df.sort_values(by='Probability (Monthly Return > 0%)', ascending=False)
+
+# Print title before displaying the results
+print("Top 10 Stocks with Probability of Daily Return Greater Than 0%:\n")
+# Format output for daily results
+d1 = daily_results_df[['Stock', 'Mean Daily Return', 'Standard Deviation (Daily)', 'Probability (Daily Return > 0%)']].head(10).to_string(index=False, float_format='%.6f')
+print(daily_results_df[['Stock', 'Mean Daily Return', 'Standard Deviation (Daily)', 'Probability (Daily Return > 0%)']].head(10).to_string(index=False, float_format='%.6f'))
+st.table(d1)
+
+print("\nTop 10 Stocks with Probability of Weekly Return Greater Than 0%:\n")
+# Format output for weekly results
+d2 = weekly_results_df[['Stock', 'Mean Weekly Return', 'Standard Deviation (Weekly)', 'Probability (Weekly Return > 0%)']].head(10).to_string(index=False, float_format='%.6f')
+print(weekly_results_df[['Stock', 'Mean Weekly Return', 'Standard Deviation (Weekly)', 'Probability (Weekly Return > 0%)']].head(10).to_string(index=False, float_format='%.6f'))
+st.table(d2)
+
+print("\nTop 10 Stocks with Probability of Monthly Return Greater Than 0%:\n")
+# Format output for monthly results
+d3= monthly_results_df[['Stock', 'Mean Monthly Return', 'Standard Deviation (Monthly)', 'Probability (Monthly Return > 0%)']].head(10).to_string(index=False, float_format='%.6f')
+print(monthly_results_df[['Stock', 'Mean Monthly Return', 'Standard Deviation (Monthly)', 'Probability (Monthly Return > 0%)']].head(10).to_string(index=False, float_format='%.6f'))
+st.table(d3)
 
 
 
