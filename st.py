@@ -27,7 +27,7 @@ st.header("Timehistory", divider=True)
 # Stock selection (user can choose the stock)
 stock_symbol = st.selectbox(
     "Select a stock symbol",
-    ('RACE.MI','LDO.MI','GOOGL', 'AAPL', 'MSFT', 'META', 'NVDA', 'SPY', 'TSLA', 'AMZN','VUSA.L','VUAA.L')  # You can add more symbols if needed
+    ('RACE.MI','LLY','GOOGL', 'AAPL', 'MSFT', 'META', 'NVDA', 'SPY', 'TSLA', 'AMZN','VUSA.L','VUAA.L')  # You can add more symbols if needed
 )
 
 
